@@ -1,0 +1,716 @@
+
+
+"""
+https://gkcx.eol.cn/soudaxue/queryProvinceScore.html
+各省控线  省的排名 学校的调档线   各个专业的调档线  招收人数？
+  学费      地理位置
+存EXCEL
+旧：https://gkcx.eol.cn/schoolhtm/schoolTemple/school30.htm ****北京工业大学
+新：https://gkcx.eol.cn/school/30
+https://gkcx.eol.cn/schoolhtm/schoolTemple/school2577.htm ***三亚理工职业学院
+https://gkcx.eol.cn/schoolhtm/schoolTemple/school4010.htm？？没有
+https://gkcx.eol.cn/schoolhtm/schoolAreaPoint/30/10005/10035/10038.htm
+
+https://gkcx.eol.cn/schoolhtm/schoolAreaPoint/**学校ID**770/**省份**10005/**文理**10034/**批次10036.htm
+
+https://gkcx.eol.cn/schoolhtm/specialty/***学校ID30/文理10035/specialtyScoreDetail_**年份2008_**省份10005.htm
+----
+理科
+https://gkcx.eol.cn/school/30/provinceline
+
+一批：https://gkcx.eol.cn/schoolhtm/schoolAreaPoint/30/10005/10035/10036.htm
+二本：https://gkcx.eol.cn/schoolhtm/schoolAreaPoint/30/10005/10035/10037.htm
+三本：https://gkcx.eol.cn/schoolhtm/schoolAreaPoint/770/10005/10035/10038.htm
+专科：https://gkcx.eol.cn/schoolhtm/schoolAreaPoint/770/10005/10035/10155.htm
+一：https://gkcx.eol.cn/soudaxue/queryschool.html?&keyWord1=成都东软学院
+二： /schoolhtm/schoolTemple/school770.htm
+三 学校主页：https://gkcx.eol.cn/schoolhtm/schoolTemple/school770.htm
+/schoolhtm/schoolAreaPoint/770/10005/10035/10036.htm
+四 省录取线：https://gkcx.eol.cn/schoolhtm/schoolAreaPoint/30/10005/10035/10036.htm
+/schoolhtm/specialty/770/10035/specialtyScoreDetail_2017_10005.htm
+五 专业录取线：https://gkcx.eol.cn/schoolhtm/specialty/30/10035/specialtyScoreDetail_2017_10005.htm
+---
+
+"""
+import  requests,re,xlwt,time,pymysql
+from bs4 import BeautifulSoup
+def GetHtml(url):
+    try:
+        r=requests.get(url)
+
+        r.encoding=r.apparent_encoding
+        print("请求服务成功！")
+        print(r.text)
+        return r.text
+    except:
+        print("请求失败")
+def search_University(url,info):
+    try:
+        html=GetHtml(url)
+        soup=BeautifulSoup(html,"html.parser")
+        pattern=re.compile(r"var schoolname='([\u4e00-\u9fa5]{1,20}?)'")
+        university_name=re.findall(pattern,html)
+        if university_name!=[]:
+            info.append(university_name[0])
+            soup1 = soup.find_all("a")
+            for a_xian in soup1:
+                if a_xian.string=='各省录取线':
+                    #print(a_xian['href'])
+                    info.append(a_xian['href'])
+                if a_xian.string=='专业录取线':
+                    #print(a_xian['href'])
+                    info.append(a_xian['href'])
+    except:
+            print("Error")
+			
+    school_point_url="https://gkcx.eol.cn"+info[1].strip()
+    school_specialty_point_url="https://gkcx.eol.cn"+info[2].strip()
+    #把省控线切割为列表
+    s1=school_point_url.split('/')
+    #把省份变为四川
+    s1[-3]='10005'
+    #把专业线切割为列表
+    s2 = school_specialty_point_url.split('/')
+    #文理科数据存放列表
+    infolist_like=[]
+    infolist_wenke=[]
+    # 把列表合成字符网址
+    url='/'.join(s1)
+    html=GetHtml(url)
+    #地址
+    soup = BeautifulSoup(html, "html.parser")
+    soup1=soup.find_all('span')
+    adress=''
+    for i in soup1:
+        if i.string!=None and '号' in list(i.string):
+            adress=i.string
+    #print(adress)
+
+    #**************理科省控线*****************#
+    #本科一批
+    flag1=True
+    soup2 = soup.find_all('tr')
+    for i in soup2:
+        for j in i:
+            if j.string=='暂时没有数据':
+                flag1=False
+    if flag1:
+        for i in soup2:
+            l=[]
+            cont=0
+            for j in i:
+                cont+=1
+                if cont==10 and j.string not in['年份','最高分','平均分','最低分','省控线','批次']:
+                    l.append(j.span.string[:3])
+                elif j!='\n' and j.string not in['年份','最高分','平均分','最低分','省控线','批次']:
+                    l.append(j.string)
+            if l!=[]:
+                infolist_like.append(l)
+
+    # 本科二批
+    flag2=True
+    s1[-1]='10037.htm'
+    url='/'.join(s1)
+    html=GetHtml(url)
+    soup=BeautifulSoup(html,'html.parser')
+    soup2 = soup.find_all('tr')
+    for i in soup2:
+        for j in i:
+            if j.string=='暂时没有数据':
+                flag2=False
+    if flag2:
+        for i in soup2:
+            l = []
+            cont = 0
+            for j in i:
+                cont += 1
+                if cont == 10 and j.string not in ['年份', '最高分', '平均分', '最低分', '省控线', '批次']:
+                    l.append(j.span.string[:3])
+                elif j != '\n' and j.string not in ['年份', '最高分', '平均分', '最低分', '省控线', '批次']:
+                        l.append(j.string)
+            if l != []:
+                infolist_like.append(l)
+
+    #本科三批
+    flag3 = True
+    s1[-1] = '10038.htm'
+    url='/'.join(s1)
+    html= GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser')
+    soup2 = soup.find_all('tr')
+    for i in soup2:
+        for j in i:
+            if j.string == '暂时没有数据':
+                flag3 = False
+    if flag3:
+        for i in soup2:
+            l = []
+            cont = 0
+            for j in i:
+                cont += 1
+                if cont == 10 and j.string not in ['年份', '最高分', '平均分', '最低分', '省控线', '批次']:
+                    l.append(j.span.string[:3])
+                elif j != '\n' and j.string not in ['年份', '最高分', '平均分', '最低分', '省控线', '批次']:
+                    l.append(j.string)
+            if l != []:
+                infolist_like.append(l)
+    #专科批
+
+    flag4 = True
+    s1[-1] = '10155.htm'
+    url = '/'.join(s1)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser')
+    soup2 = soup.find_all('tr')
+    for i in soup2:
+        for j in i:
+            if j.string == '暂时没有数据':
+                flag4 = False
+    if flag4:
+        for i in soup2:
+            l = []
+            cont = 0
+            for j in i:
+                if cont == 10 and j.string not in ['年份', '最高分', '平均分', '最低分', '省控线', '批次']:
+                    l.append(j.span.string[:3])
+                elif j != '\n' and j.string not in ['年份', '最高分', '平均分', '最低分', '省控线', '批次']:
+                        l.append(j.string)
+            if l!=[]:
+                infolist_like.append(l)
+
+    for i in infolist_like:
+       print(i)
+
+    print("*************正在写入Excrl%s理科数据***************"%info[0])
+    #创建工作簿((理科)指定编码
+    file=xlwt.Workbook(encoding='utf-8')
+    #创建表
+    table1=file.add_sheet(info[0]+'理科线')
+    value=['学校名称','年份','最高分','平均分','最低分','省控线','批次','通讯地址']
+    table1.col(7).width=256*20
+    for i in range(len(value)):
+        table1.write(0,i,value[i])
+    for i in range(len(infolist_like)):
+        infolist_like[i].insert(0,"%s"%info[0])
+        infolist_like[i].append(adress)
+        for j in range(len(infolist_like[i])):
+            table1.write(i+1,j,infolist_like[i][j])
+   
+    #*********************文科省控线*****************************#
+    #把理科转变成文科
+    s1[-2]='10034'
+    s1[-1]='10036.htm'
+    url = '/'.join(s1)
+    html = GetHtml(url)
+    soup=BeautifulSoup(html,'html.parser')
+    # 本科一批
+    flag1 = True
+    soup2 = soup.find_all('tr')
+    for i in soup2:
+        for j in i:
+            if j.string == '暂时没有数据':
+                flag1 = False
+    if flag1:
+        for i in soup2:
+            l = []
+            cont = 0
+            for j in i:
+                cont += 1
+                if cont == 10 and j.string not in ['年份', '最高分', '平均分', '最低分', '省控线', '批次']:
+                    l.append(j.span.string[:3])
+                elif j != '\n' and j.string not in ['年份', '最高分', '平均分', '最低分', '省控线', '批次']:
+                        l.append(j.string)
+            if l != []:
+                infolist_wenke.append(l)
+    # 本科二批
+    flag2 = True
+    s1[-1] = '10037.htm'
+    url = '/'.join(s1)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html,'html.parser')
+    soup2 = soup.find_all('tr')
+    for i in soup2:
+        for j in i:
+            if j.string == '暂时没有数据':
+                flag2 = False
+    if flag2:
+        for i in soup2:
+            l = []
+            cont = 0
+            for j in i:
+                cont += 1
+                if cont == 10 and j.string not in ['年份', '最高分', '平均分', '最低分', '省控线', '批次']:
+                    l.append(j.span.string[:3])
+                elif j != '\n' and j.string not in ['年份', '最高分', '平均分', '最低分', '省控线', '批次']:
+                        l.append(j.string)
+            if l != []:
+                infolist_like.append(l)
+
+    # 本科三批
+    flag3 = True
+    s1[-1] = '10038.htm'
+    url='/'.join(s1)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser')
+    soup2 = soup.find_all('tr')
+    for i in soup2:
+        for j in i:
+            if j.string == '暂时没有数据':
+                flag3 = False
+    if flag3:
+        for i in soup2:
+            l = []
+            cont = 0
+            for j in i:
+                cont += 1
+                if cont == 10 and j.string not in ['年份', '最高分', '平均分', '最低分', '省控线', '批次']:
+                    l.append(j.span.string[:3])
+                elif j != '\n' and j.string not in ['年份', '最高分', '平均分', '最低分', '省控线', '批次']:
+                        l.append(j.string)
+            if l!=[]:
+                infolist_wenke.append(l)
+
+    # 专科批
+    flag4 = True
+    s1[-1] = '10155.htm'
+    url = '/'.join(s1)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser')
+    soup2 = soup.find_all('tr')
+    for i in soup2:
+        for j in i:
+            if j.string == '暂时没有数据':
+                flag4 = False
+    if flag4:
+        for i in soup2:
+            l = []
+            cont = 0
+            for j in i:
+                if cont == 10 and j.string not in ['年份', '最高分', '平均分', '最低分', '省控线', '批次']:
+                    l.append(j.span.string[:3])
+                elif j != '\n' and j.string not in ['年份', '最高分', '平均分', '最低分', '省控线', '批次']:
+                        l.append(j.string)
+            if l!=[]:
+                infolist_wenke.append(l)
+    for i in infolist_wenke:
+        print(i)
+    #创建文科省控
+    print("************正在写入Excel%s文科数据***************"%info[0])
+    table2=file.add_sheet("%s文科数据"%info[0])
+    value = ['学校名称','年份', '最高分', '平均分', '最低分', '省控线', '批次', '通讯地址']
+    table2.col(7).width = 256 * 20
+    for i in range(len(value)):
+        table2.write(0,i,value[i])
+    for i in range(len(infolist_wenke)):
+        infolist_wenke[i].insert(0,"%s"%info[0])
+        infolist_wenke[i].append(adress)
+        for j in range(len(infolist_wenke[i])):
+            table2.write(i+1,j,infolist_wenke[i][j])
+    
+    #**********************每个高校对四川招生的专业录取线******************************
+   #专业数据是2008到2017
+    infolist_specialtyScore=[]
+    #2017理科
+    s2[-1]='specialtyScoreDetail_2017_10005.htm'
+    url='/'.join(s2)
+    html=GetHtml(url)
+    soup=BeautifulSoup(html,'html.parser').find_all('tr')
+    for i in soup:
+        l=[]
+        cont=0
+        for j in i:
+            cont+=1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据', ' ', '']:
+               if cont==12:
+                 l.append(j.string.strip())
+               else: l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+    # 2016理科
+    s2[-1] = 'specialtyScoreDetail_2016_10005.htm'
+    url = '/'.join(s2)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser').find_all('tr')
+    for i in soup:
+        l = []
+        cont = 0
+        for j in i:
+            cont += 1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据', ' ', '']:
+                if cont == 12:
+                    l.append(j.string.strip())
+                else:
+                    l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+
+    # 2015理科
+    s2[-1] = 'specialtyScoreDetail_2015_10005.htm'
+    url = '/'.join(s2)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser').find_all('tr')
+    for i in soup:
+        l = []
+        cont = 0
+        for j in i:
+            cont += 1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据', ' ', '']:
+                if cont == 12:
+                    l.append(j.string.strip())
+                else:
+                    l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+    # 2014理科
+    s2[-1] = 'specialtyScoreDetail_2014_10005.htm'
+    url = '/'.join(s2)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser').find_all('tr')
+    for i in soup:
+        l = []
+        cont = 0
+        for j in i:
+            cont += 1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据', ' ', '']:
+                if cont == 12:
+                    l.append(j.string.strip())
+                else:
+                    l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+    # 2013理科
+    s2[-1] = 'specialtyScoreDetail_2013_10005.htm'
+    url = '/'.join(s2)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser').find_all('tr')
+    for i in soup:
+        l = []
+        cont = 0
+        for j in i:
+            cont += 1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据', ' ', '']:
+                if cont == 12:
+                    l.append(j.string.strip())
+                else:
+                    l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+
+    # 2012理科
+    s2[-1] = 'specialtyScoreDetail_2012_10005.htm'
+    url = '/'.join(s2)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser').find_all('tr')
+    for i in soup:
+        l = []
+        cont = 0
+        for j in i:
+            cont += 1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据', ' ', '']:
+                if cont == 12:
+                    l.append(j.string.strip())
+                else:
+                    l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+    # 2011理科
+    s2[-1] = 'specialtyScoreDetail_2011_10005.htm'
+    url = '/'.join(s2)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser').find_all('tr')
+    for i in soup:
+        l = []
+        cont = 0
+        for j in i:
+            cont += 1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据', ' ', '']:
+                if cont == 12:
+                    l.append(j.string.strip())
+                else:
+                    l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+    # 2010理科
+    s2[-1] = 'specialtyScoreDetail_2010_10005.htm'
+    url = '/'.join(s2)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser').find_all('tr')
+    for i in soup:
+        l = []
+        cont = 0
+        for j in i:
+            cont += 1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据', ' ', ]:
+                if cont == 12:
+                    l.append(j.string.strip())
+                else:
+                    l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+
+    # 2009理科
+    s2[-1] = 'specialtyScoreDetail_2009_10005.htm'
+    url = '/'.join(s2)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser').find_all('tr')
+    for i in soup:
+        l = []
+        cont = 0
+        for j in i:
+            cont += 1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据', ' ', '']:
+                if cont == 12:
+                    l.append(j.string.strip())
+                else:
+                    l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+    # 2008理科
+    s2[-1] = 'specialtyScoreDetail_2008_10005.htm'
+    url = '/'.join(s2)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser').find_all('tr')
+    for i in soup:
+        l = []
+        cont = 0
+        for j in i:
+            cont += 1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据',' ','']:
+                if cont == 12:
+                    l.append(j.string.strip())
+                else:
+                    l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+     #创建理科专业表
+    for i in infolist_specialtyScore:
+        print(i)
+    print("*********正在写入Excel%s理科专业数据***********"%info[0])
+    table3=file.add_sheet(info[0]+"理科专业线")
+    value=['专业名称','年份','最高分','平均分','最低分','录取批次']
+    for i in range(len(value)):
+        table3.write(0,i,value[i])
+    for i in range(len(infolist_specialtyScore)):
+        for j in range(len(infolist_specialtyScore[i])):
+            table3.write(i+1,j,infolist_specialtyScore[i][j])
+    print("Excel%s理科专业数据写入成功！" % info[0])
+   
+   
+ 
+   
+    #**********文科********
+    # 2017文科
+    #转换为文科代码
+    infolist_specialtyScore=[]
+    s2[-2]='10034'
+    s2[-1] = 'specialtyScoreDetail_2017_10005.htm'
+    url = '/'.join(s2)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser').find_all('tr')
+    for i in soup:
+        l = []
+        cont = 0
+        for j in i:
+            cont += 1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据', ' ', '']:
+                if cont == 12:
+                    l.append(j.string.strip())
+                else:
+                    l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+    # 2016文科
+    s2[-1] = 'specialtyScoreDetail_2016_10005.htm'
+    url = '/'.join(s2)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser').find_all('tr')
+    for i in soup:
+        l = []
+        cont = 0
+        for j in i:
+            cont += 1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据', ' ', '']:
+                if cont == 12:
+                    l.append(j.string.strip())
+                else:
+                    l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+
+    # 2015文科
+    s2[-1] = 'specialtyScoreDetail_2015_10005.htm'
+    url = '/'.join(s2)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser').find_all('tr')
+    for i in soup:
+        l = []
+        cont = 0
+        for j in i:
+            cont += 1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据', ' ', '']:
+                if cont == 12:
+                    l.append(j.string.strip())
+                else:
+                    l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+    # 2014文科
+    s2[-1] = 'specialtyScoreDetail_2014_10005.htm'
+    url = '/'.join(s2)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser').find_all('tr')
+    for i in soup:
+        l = []
+        cont = 0
+        for j in i:
+            cont += 1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据', ' ', '','--']:
+                if cont == 12:
+                    l.append(j.string.strip())
+                else:
+                    l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+    # 2013文科
+    s2[-1] = 'specialtyScoreDetail_2013_10005.htm'
+    url = '/'.join(s2)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser').find_all('tr')
+    for i in soup:
+        l = []
+        cont = 0
+        for j in i:
+            cont += 1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据', ' ', '']:
+                if cont == 12:
+                    l.append(j.string.strip())
+                else:
+                    l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+
+    # 2012文科
+    s2[-1] = 'specialtyScoreDetail_2012_10005.htm'
+    url = '/'.join(s2)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser').find_all('tr')
+    for i in soup:
+        l = []
+        cont = 0
+        for j in i:
+            cont += 1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据', ' ', '']:
+                if cont == 12:
+                    l.append(j.string.strip())
+                else:
+                    l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+    # 2011文科
+    s2[-1] = 'specialtyScoreDetail_2011_10005.htm'
+    url = '/'.join(s2)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser').find_all('tr')
+    for i in soup:
+        l = []
+        cont = 0
+        for j in i:
+            cont += 1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据', ' ', '']:
+                if cont == 12:
+                    l.append(j.string.strip())
+                else:
+                    l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+    # 2010文科
+    s2[-1] = 'specialtyScoreDetail_2010_10005.htm'
+    url = '/'.join(s2)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser').find_all('tr')
+    for i in soup:
+        l = []
+        cont = 0
+        for j in i:
+            cont += 1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据', ' ', '']:
+                if cont == 12:
+                    l.append(j.string.strip())
+                else:
+                    l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+
+    # 2009文科
+    s2[-1] = 'specialtyScoreDetail_2009_10005.htm'
+    url = '/'.join(s2)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser').find_all('tr')
+    for i in soup:
+        l = []
+        cont = 0
+        for j in i:
+            cont += 1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据', ' ', '']:
+                if cont == 12:
+                    l.append(j.string.strip())
+                else:
+                    l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+    # 2008文科
+    s2[-1] = 'specialtyScoreDetail_2008_10005.htm'
+    url = '/'.join(s2)
+    html = GetHtml(url)
+    soup = BeautifulSoup(html, 'html.parser').find_all('tr')
+    for i in soup:
+        l = []
+        cont = 0
+        for j in i:
+            cont += 1
+            if j.string not in ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次', '\n', '暂时没有数据', ' ', '']:
+                if cont == 12:
+                    l.append(j.string.strip())
+                else:
+                    l.append(j.string)
+        if l!=[]:
+            infolist_specialtyScore.append(l)
+    # 创建理科专业表
+    for i in infolist_specialtyScore:
+        print(i)
+    print("************正在写入Excel%s文科专业数据***********" % info[0])
+    table4 = file.add_sheet(info[0] + "文科专业线")
+    value = ['专业名称', '年份', '最高分', '平均分', '最低分', '录取批次']
+    for i in range(len(value)):
+        table4.write(0, i, value[i])
+    for i in range(len(infolist_specialtyScore)):
+        for j in range(len(infolist_specialtyScore[i])):
+            table4.write(i + 1, j, infolist_specialtyScore[i][j])
+    print("Excel%s文科专业数据写入成功！" % info[0])
+   
+   
+
+    
+    #***********指定保存路径******************
+    file.save('D:\QQPCMgr(1)\Desktop\高校/' + info[0] + '录取数据.xls')
+
+ 
+    print("**************%s所有数据写入成功!************" % info[0])
+def main():
+    #text=open("全国高校.txt",'r').readlines()
+    start=time.perf_counter()
+    for i in range(30,3000):
+        info = []
+        url="https://gkcx.eol.cn/schoolhtm/schoolTemple/school"+str(i)+".htm"
+        print(url)
+        search_University(url,info)
+        print(info)
+        #特殊判断个别专科院校与其他多数学校差别,就跳过，否则一大堆错误，处理的脑壳疼
+        if len(info)<3 or info[1].strip()==info[2].strip() or "http:" in info[1].strip().split('/'):
+            continue
+        get_schoolAreaPoint(info)
+        print("查询第%d个学校"%(int(i)-29))
+    end=time.perf_counter()
+    print("花费时间：%.2fs"%(end-start))
+if __name__ == '__main__':
+    main()
