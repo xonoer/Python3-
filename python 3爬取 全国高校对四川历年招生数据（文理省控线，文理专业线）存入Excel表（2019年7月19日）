@@ -1,0 +1,233 @@
+# -*- coding: utf-8 -*-
+# @Filename: 全国高线数据重构二.py
+# @Time    : 2019/7/18 18:17
+# @Author  : LYT
+"""
+https://gkcx.eol.cn/school/30/specialtyline#专业线
+https://gkcx.eol.cn/school/30/provinceline#省线
+"apidata/api/gk/score/province"
+"""
+
+import requests,re,xlwt,json,pymysql
+from bs4 import BeautifulSoup
+def Get_html(url,data):
+    try:
+        headers = {
+            'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.25 Safari/537.36 Core/1.70.3676.400 QQBrowser/10.4.34"
+        }
+        r=requests.post(url,params=data,headers=headers)#带请求参数params
+        r.encoding=r.apparent_encoding
+        print("请求服务成功!")
+        print(r.text)
+        return r.text
+    except:
+        print("请求失败")
+def Get_info(url,id):
+    url_api = "https://api.eol.cn/gkcx/api"#请求ajax api
+    #请求参数信息
+    data = {
+        'local_province_id': '52',  # 省份 52为贵州  需要其他省份需要更改成其他省份代码既可
+        'local_type_id': 1,  # 理科为1，文科为2，
+        'school_id': '30',  # 学校id
+        'uri': "apidata/api/gk/score/province",  # 专业线special     省线province
+        'year': 2018  # 年份 网站更新后 省录取线2014 -2018  专业录取线2014-2018
+    }
+    info_like=[]#存理科省线信息列表
+    info_wenke=[]#存文科省线信息列表
+    special_like=[]#存理科专业信息列表
+    special_wenke=[]#存文科专信息业表
+
+
+
+
+
+    name=""
+    for i in range(2014,2019):#请求2014-2018的省控线信息
+
+        data['year']=i #更换参数年份
+        data['school_id']=id#更换学校id
+        data['local_type_id']=1#更换为理科
+        infoes=json.loads(Get_html(url_api,data))
+        # print(info)
+        # print(info['data']['item'])
+        #存理科省录取线
+        if len(infoes['data']['item'])==0:
+            l=[]
+            l.append(name)  # 没有数据就填充--
+            l.append(str(i))
+            l.append('--')
+            l.append('--')
+            l.append('--')
+            l.append('--')
+            l.append('--')
+            l.append('--')
+            info_like.append(l)
+        for j in range(len(infoes['data']['item'])):  # 可能有多个省录取线，比如提前批，一批，二批等
+            l = []
+            info = infoes['data']['item'][j]
+            name = info['name']
+            l.append(info['name'])#存学校名字
+            l.append(info['year'])#存年份
+            l.append(info['local_type_name'])  # 科类
+            l.append(info['max'])#最大录取分数
+            l.append(info['average'])#平均分
+            l.append(info['min']) #最低分
+            l.append(info['proscore']) #省控线
+            l.append(info['local_batch_name'])#批次
+            info_like.append(l)
+
+        #存文科录取线
+        data['local_type_id']=2#更换为文科
+        infoes = json.loads(Get_html(url_api,data))
+        if len(infoes['data']['item'])==0:
+            l=[]
+            l.append(name)  # 没有数据就填充--
+            l.append(str(i))
+            l.append('--')
+            l.append('--')
+            l.append('--')
+            l.append('--')
+            l.append('--')
+            l.append('--')
+            info_wenke.append(l)
+        for j in range(len(infoes['data']['item'])):#可能有多个省录取线，比如提前批，一批，二批等
+            l=[]
+            info = infoes['data']['item'][j]
+            name=info['name']
+            l.append(info['name'])  # 存学校名字
+            l.append(info['year'])  # 存年份
+            l.append(info['local_type_name'])#科类
+            l.append(info['max'])   #最大录取分数
+            l.append(info['average']) #平均分
+            l.append(info['min'])      #最低分
+            l.append(info['proscore']) #省控线
+            l.append(info['local_batch_name'])#批次
+            info_wenke.append(l)
+
+        print(info_like)
+        print(info_wenke)
+
+    for i in range(2014,2018):#请求2014-2017的专业录取信息
+        # 请求参数信息
+        data['year'] = i  # 更换参数年份
+        data['school_id'] = id  # 更换学校id
+        data['local_type_id'] = 1  # 更换为理科
+        data['uri']='/'.join(data['uri'].split('/')[0:-1])+"/special"#更换为请求参数为专业录取线的参数网址
+        infoes = json.loads(Get_html(url_api,data))
+        #存理科专业信息
+        if len(infoes['data']['item']) == 0:
+            l = []
+            l.append(name)
+            l.append(str(i))
+            l.append('--')
+            l.append('--')
+            l.append('--')
+            l.append('--')
+            l.append('--')
+            l.append('--')
+            info_like.append(l)
+        for j in range(len(infoes['data']['item'])):
+            l=[]
+            info=infoes['data']['item'][j]
+            name=info['name']
+            l.append(info['name'])#学校名字
+            l.append(info['year'])#年份
+            l.append(info['spname'])#专业名称
+            l.append(info['local_type_name'])#科类
+            l.append(info['average'])#专业平均分
+            l.append(info['max'])#最高分
+            l.append(info['min'])#最低分
+            l.append(info['local_batch_name'])#录取批次
+            special_like.append(l)
+        #存文科专业录取信息
+        data['local_type_id']=2#更换为文科
+        infoes = json.loads(Get_html(url_api, data))
+        if len(infoes['data']['item']) == 0:
+            l = []
+            l.append(name)   #没有信息就填充--符号
+            l.append(str(i))
+            l.append('--')
+            l.append('--')
+            l.append('--')
+            l.append('--')
+            l.append('--')
+            l.append('--')
+            info_like.append(l)
+        for j in range(len(infoes['data']['item'])):
+            l=[]
+            info=infoes['data']['item'][j]
+            name=info['name']
+            l.append(info['name'])#学校名字
+            l.append(info['year'])#年份
+            l.append(info['spname'])#专业名称
+            l.append(info['local_type_name'])#科类
+            l.append(info['average'])#专业平均分
+            l.append(info['max'])#最高分
+            l.append(info['min'])#最低分
+            l.append(info['local_batch_name'])#录取批次
+            special_wenke.append(l)
+        print(special_like)
+        print(special_wenke)
+    #*******************保存数据到excel**************************
+    print("*************正在写入Excel数据***************")
+    # 创建excel簿指定编码
+    file=xlwt.Workbook(encoding='utf-8')
+    #创建表 一个表有4个sheet
+    print("*************正在写入Excrl理科专业线数据***************")
+    table1=file.add_sheet(name+'理科专业线')
+    value = ['学校名称', '年份','专业名称','科类', '平均分', '最高分', '最低分', '批次']
+    for i in range(len(value)):
+        table1.write(0,i,value[i])
+    for i in range(len(special_like)):
+        for j in range(len(special_like[i])):
+            table1.write(i+1,j,special_like[i][j])
+   
+
+    print("*************正在写入Excrl文科专业线数据***************")
+    table2 = file.add_sheet(name + '文科专业线')
+    value = ['学校名称', '年份', '专业名称', '科类', '平均分', '最高分', '最低分', '批次']
+    for i in range(len(value)):
+        table2.write(0, i, value[i])
+    for i in range(len(special_wenke)):
+        for j in range(len(special_wenke[i])):
+            table2.write(i + 1, j, special_wenke[i][j])
+
+
+
+    print("*************正在写入Excrl理科省控线数据***************")
+    table3 = file.add_sheet(name + '理科省控线')
+    value = ['学校名称', '年份', '科类', '最高分', '平均分', '最低分', '省控线', '批次']
+    for i in range(len(value)):
+        table3.write(0, i, value[i])
+    for i in range(len(info_like)):
+        for j in range(len(info_like[i])):
+            table3.write(i + 1, j, info_like[i][j])
+
+  
+
+    print("*************正在写入Excrl文科省控线数据***************")
+    table4 = file.add_sheet(name + '文科省控线')
+    value = ['学校名称', '年份', '科类', '最高分', '平均分', '最低分', '省控线', '批次']
+    for i in range(len(value)):
+        table4.write(0, i, value[i])
+    for i in range(len(info_wenke)):
+        for j in range(len(info_wenke[i])):
+            table4.write(i + 1, j, info_wenke[i][j])
+
+
+    # *******************************************#
+    # ***********EXCEL指定保存路径配置************#
+    # *******************************************#
+    # file.save('”桌面路径+文件夹名字”/' + name + '录取数据.xls')
+    file.save('D:\QQPCMgr(1)\Desktop\高校/' + name + '录取数据.xls')
+   
+    print("****************"+name+"所有数据爬取成功"+"*********************")
+def main():
+    for id in range(30,3000):
+        url="https://gkcx.eol.cn/school/"+str(id)
+        print(url)
+        Get_info(url,id)
+
+if __name__ == '__main__':
+
+    main()
